@@ -1,3 +1,25 @@
+# 10. Plot of token log frequency????????????
+
+# Plot shows that a huge majority of words appear with low frequency (n = 1, log(n) = 0).
+# A few words comprise a disproportionately large percentage of the tokens
+
+# Import Libraries
+from math import log
+# Obtain frequency values from dict
+tok_freqs = list(corpus.values())
+# Take log of all freq counts
+log_freqs = [log(x) for x in tok_freqs]
+# Sort form least to greatest for use in plot
+log_freqs.sort()
+# Save list as series to enable plotting
+logz = pd.Series(log_freqs)
+# Plot log(freq) of each token, sorted from smallest to largest
+logz.plot(use_index=False,title='Token Log Frequency')
+plt.xlabel("index(sorted)")
+plt.ylabel("Log(Frequency)")
+
+
+
 # Looking through entire list of (repeated) words, count instances of distinct words
 for word in temp_gold_dev:
     # If word has already been seen, add one to its count
