@@ -25,6 +25,16 @@ data_test = pd.read_csv("Gold/test.txt", sep='\t', header=None, index_col=False,
                            names=['id', 'target', 'tweet'], encoding='utf-8')
 data_test.drop(['id'], axis=1, inplace=True)
 
+kaggle_data = a = pd.read_csv("Gold/kaggle_data.csv", encoding='iso-8859-1',
+                              names=["target", "ids", "date", "flag", "user", "tweet"])
+kaggle_data.drop(['ids','flag','date','user'],axis=1,inplace=True)
+kaggle_data.loc[kaggle_data.loc[:, 'target'] == 0, 'target'] = 'negative'
+kaggle_data.loc[kaggle_data.loc[:, 'target'] == 4, 'target'] = 'positive'
+kaggle_data = kaggle_data.sample(frac=1).reset_index(drop=True).loc[0:50000,:]
+
+data_dev = data_dev.append(kaggle_data, ignore_index=True)
+
+
 
 regexes=(
 # Keep usernames together (any token starting with @, followed by A-Z, a-z, 0-9)        
@@ -112,7 +122,35 @@ url_tokenizer = re.compile(big_url_pattern, re.VERBOSE | re.I | re.UNICODE)
 
 
 #Setting stop words
-stop_words = set(stopwords.words('english')) 
+stops = list(stopwords.words('english')) 
+stop_words = []
+for word in stops:
+    if word[-3:] != "n't":
+        if word[-1] != 'n':
+            stop_words.append(word)
+        
+negation_words = ['not', 
+                  'no', 
+                  'never',
+                  'none',
+                  'no one',
+                  'nobody',
+                  'nothing',
+                  'neither',
+                  'never',
+                  'hardly',
+                  'scarcely',
+                  'barely',
+                  "doesn't",
+                  "isn't",
+                  "wasn't",
+                  "shouldn't",
+                  "wouldn't",
+                  "couldn't",
+                  "won't",
+                  "can't",
+                  "don't"
+                  ]
 
 def randomOversampler(DataFrame):
     # Assumption is that positive class always majority.  
@@ -126,29 +164,36 @@ def randomOversampler(DataFrame):
     neu_class_coutn = DataFrame.groupby(by='target').count().loc['neutral',:][0]
     neu_nums = random.choices(range(neu_rows), k=pos_class_count-neu_class_coutn)
     neg_nums = random.choices(range(neg_rows), k=pos_class_count-neg_class_count)
-    
-    for num in neu_nums:
-        DataFrame = DataFrame.append(neutral_tweets.iloc[num,:], ignore_index=True)
-    for num in neg_nums:
-        DataFrame = DataFrame.append(negative_tweets.iloc[num,:], ignore_index=True)
+    DataFrame = DataFrame.append(neutral_tweets.iloc[neu_nums,:], ignore_index=True)
+    DataFrame = DataFrame.append(negative_tweets.iloc[neg_nums,:], ignore_index=True)
     return DataFrame
 
-def uniqtag(tweet):
-    tagword = []   
-    for word in nltk.pos_tag(my_extensible_tokenizer.findall(tweet)):
-        tagword.append(word[1])    
-    return(set(tagword))        
-        
 
 def tweettag(tweet):
-    tags = uniqtag(tweet)
+    tags = [
+            'JJ',
+            'NN',
+            'NNS',
+            'IN',
+            'JJR',
+            'JJS',
+            'POS',
+            'RB',
+            'RBR',
+            'RBS',
+            'VB',
+            'VBD',
+            'BVG',
+            'VBN',
+            'VBP',
+            'VBZ',
+            'WRB'
+            ]
     twt = []    
     for tag in tags:
-        count = 0        
         for word in pos_tag(my_extensible_tokenizer.findall(tweet), tagset='universial'):
-            if word[1] == tag:
-                count = True               
-        twt.append((tag,count))
+            if word[1] in tag:
+                twt.append((tag,True))
     return(twt)
 
 
@@ -189,18 +234,30 @@ def preprocessing(data):
     sia = nltk.sentiment.vader.SentimentIntensityAnalyzer()
     for text in data.values: # for each tweet.  
         temp = []  # stores the modified matches for a single tweet
+        NOT = 0 # setting variable to 0 that will trigger the variable "negate" to append "_not" to all words following "n't" or "not" in a tweet
+        negate = 0 # set variable to 0 that, when equal to 1, will append "_not" to all words following an instance of "n't" or "not"
         for matches in my_extensible_tokenizer.findall(text[1]):
-            # determine if matches is a url.  
+            matches = matches.lower()
+            # determine if matches is a url.
+            # Set NOT to 1, where it will remain for remainder of tweet until new row resets NOT to 0
+            if (matches[-3:] == "n't" or matches in negation_words):
+                NOT = 1
             trash_matches = trash_tokenizer.findall(matches)
             temp = url_processsing(matches, temp)
             temp = hashtag_processing(matches, temp)
             temp = textPolarity(matches, temp, sia) 
             # if the match is unwanted, then won't add to temp.  
             if not trash_matches and matches !='':
-#                whatisthis = nltk.tag.pos_tag([matches])[0][1]
+                #whatisthis = nltk.tag.pos_tag([matches])[0][1]
                 if matches not in stop_words:
-                    temp.append(('contains(' + matches.lower() + ')', True))
-#        temp = temp + tweettag(text[1])
+                    # If the NOT trigger was previously activated in this tweet, add "_not" to this (and all subsequent) words
+                    if negate == 1:
+                        matches = matches + '_not'
+                    temp.append(('contains(' + matches + ')', True))
+            # Activate _not trigger if this word ended with "n't" or was "not"
+            if NOT == 1:
+                negate = 1
+        temp = temp + tweettag(text[1])
         tokens.append((dict(temp), text[0]))
     return tokens
 
@@ -221,7 +278,7 @@ sentiment_analyzer = SentimentAnalyzer()
 trainer = NaiveBayesClassifier.train
 classifier = sentiment_analyzer.train(trainer=trainer, training_set=training_features)
 # Evaluating model on training data.
-sentiment_analyzer.evaluate(training_features, classifier)
+#sentiment_analyzer.evaluate(training_features, classifier)
 
 
 sentiment_analyzer.evaluate(test_final, classifier)
