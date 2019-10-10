@@ -6,7 +6,8 @@ import nltk
 from nltk.tag import pos_tag
 from nltk.corpus import stopwords
 import random
-
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+analyzer = SentimentIntensityAnalyzer()
 
 
 data_dev = pd.read_csv("Gold/dev.txt", sep='\t', header=None, index_col=False,
@@ -234,6 +235,7 @@ def preprocessing(data):
     sia = nltk.sentiment.vader.SentimentIntensityAnalyzer()
     for text in data.values: # for each tweet.  
         temp = []  # stores the modified matches for a single tweet
+        temp3 = [] # stores just the words (with negation, if applicable) for inclusion in n-grams
         NOT = 0 # setting variable to 0 that will trigger the variable "negate" to append "_not" to all words following "n't" or "not" in a tweet
         negate = 0 # set variable to 0 that, when equal to 1, will append "_not" to all words following an instance of "n't" or "not"
         for matches in my_extensible_tokenizer.findall(text[1]):
@@ -254,12 +256,81 @@ def preprocessing(data):
                     if negate == 1:
                         matches = matches + '_not'
                     temp.append(('contains(' + matches + ')', True))
+                    # Add to list of tokens in this tweet
+                    temp.append(('contains(' + matches.lower() + ')', True))
+                    # Add backward-looking 2-gram, if possible
+                    if len(temp3) > 0:
+                        temp.append(('contains(' + temp3[-1] + ' ' + matches.lower() + ')', True))
+                    # Add backward-looking 3-gram, if possible
+                    if len(temp3) > 1:
+                        temp.append(('contains(' + temp3[-2] + ' ' + temp3[-1] + ' ' + matches.lower() + ')', True))
+                    # Add backward-looking 4-gram, if possible
+                    if len(temp3) > 2:
+                        temp.append(('contains(' + temp3[-3] + ' ' + temp3[-2] + ' ' + temp3[-1] + ' ' + matches.lower() + ')', True))
+                    # Add to running list of words being saved for n-grams
+                    temp3.append(matches.lower())
             # Activate _not trigger if this word ended with "n't" or was "not"
             if NOT == 1:
                 negate = 1
         temp = temp + tweettag(text[1])
         tokens.append((dict(temp), text[0]))
     return tokens
+
+# Define function that performs VADER on dataset and returns accuracy of VADER's sentiment analysis
+def vader(data):
+    # Stores list of results of VADER process for each tweet
+    vader = []
+    # for each tweet.  
+    for text in data.values:
+        # stores just the words (no negation) for inclusion in VADER
+        temp2 = []
+        # For each word in the tweet...
+        for matches in my_extensible_tokenizer.findall(text[1]):
+            # If word doesn't register as a URL or username...
+            trash_matches = trash_tokenizer.findall(matches)
+            if not trash_matches:
+                if matches != '':
+                    # And if word is not in list of stopwords...
+                    if nltk.tag.pos_tag([matches])[0][1] not in stop_words:
+                        # Add to running list of tokens being saved for Vader
+                        temp2.append(matches.lower())
+        # Join all surviving tokens from tweet into clean single string
+        sentence = " ".join(temp2)
+        # Run VADER on string  
+        vs = analyzer.polarity_scores(sentence)
+        # Assign score to tweet based on VADER's compound statistic
+        if vs['compound'] < -.05:
+            score = 'negative'
+        elif vs['compound'] > .05:
+            score = 'positive'
+        else:
+            score = 'neutral'
+        # Add this tweet's score to list of all scores
+        vader.append(score)
+    # Create dataframe that stores VADER sentiment result and true sentiment label in same row
+    vadertest = pd.DataFrame({'true':data['target'],'test':vader})
+    # Compute series that contains counts of each possible pairing of VADER result and true tweet sentiment
+    b = vadertest.groupby(["true", "test"]).size()
+
+    accuracy = (b['positive','positive']+b['neutral','neutral']+b['negative','negative'])/len(vadertest)
+    precision_pos = b['positive','positive']/(sum(vadertest['test']=='positive'))
+    recall_pos = b['positive','positive']/sum(vadertest['true']=='positive')
+    f_measure_pos = 2*(recall_pos * precision_pos) / (recall_pos + precision_pos)
+    precision_neu = b['neutral','neutral']/(sum(vadertest['test']=='neutral'))
+    recall_neu = b['neutral','neutral']/(sum(vadertest['true']=='neutral'))
+    f_measure_neu = 2*(recall_neu * precision_neu) / (recall_neu + precision_neu)
+    precision_neg = b['negative','negative']/(sum(vadertest['test']=='negative'))
+    recall_neg = b['negative','negative']/(sum(vadertest['true']=='negative'))
+    f_measure_neg = 2*(recall_neg * precision_neg) / (recall_neg + precision_neg)
+    recall_avg = (recall_pos + recall_neu + recall_neg)/3
+    
+    results = pd.Series({'Accuracy':accuracy,'Precision(Positive)':precision_pos,'Recall(Positive)':recall_pos,
+                     'F-Measure(Positive)':f_measure_pos,'Precision(Neutral)':precision_neu,'Recall(Neutral)':recall_neu,
+                     'F-Measure(Neutral)':f_measure_neu,'Precision(Negative)':precision_neg,'Precision(Neutral)':precision_neu,
+                     'F-Measure(Negative)':f_measure_neg,'Average Recall':recall_avg})
+    print(results)
+    
+
 
 data_dev = randomOversampler(data_dev)
 data_train = randomOversampler(data_train)
@@ -283,9 +354,10 @@ classifier = sentiment_analyzer.train(trainer=trainer, training_set=training_fea
 
 sentiment_analyzer.evaluate(test_final, classifier)
 
-
-
-
+#vader(data_dev)
+#vader(data_train)
+#vader(data_devtest)
+#vader(data_test)
 
 
 
