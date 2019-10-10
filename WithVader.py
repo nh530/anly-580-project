@@ -33,8 +33,8 @@ data_train.drop(['id'], axis=1, inplace=True)
 data_devtest = pd.read_csv("Gold/devtest.txt", sep='\t', header=None, index_col=False,
                            names=['id', 'target', 'tweet'], encoding='utf-8')
 data_devtest.drop(['id'], axis=1, inplace=True)
-data_devtest.loc[1,'tweet'] = "@PersonaSoda well yeah, that's third parties. Sony itself isn't putting out actual games for it. It's got 1-2 yrs of 3rd party support left."
-data_devtest.loc[1,'target'] = 'neutral'
+#data_devtest.loc[1,'tweet'] = "@PersonaSoda well yeah, that's third parties. Sony itself isn't putting out actual games for it. It's got 1-2 yrs of 3rd party support left."
+#data_devtest.loc[1,'target'] = 'neutral'
 
 data_test = pd.read_csv("Gold/test.txt", sep='\t', header=None, index_col=False,
                            names=['id', 'target', 'tweet'], encoding='utf-8')
