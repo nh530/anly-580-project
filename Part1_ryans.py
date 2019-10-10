@@ -22,7 +22,7 @@ data.drop(['id', 'target'], axis=1, inplace=True)
 # 11906
 print("Number of tweets: " + str(data.shape[0]))
 
-# Construct dictionaries that will contain distinct n-grams
+# Construct dictionaries that will contain distinct character n-grams
 n_2 = {}
 n_3 = {}
 n_4 = {}
@@ -179,7 +179,7 @@ big_regex="|".join(regexes)
 # expressions like [A-Z] will match lowercase letters, too. 
 my_extensible_tokenizer = re.compile(big_regex, re.VERBOSE | re.I | re.UNICODE)
 
-# Define list that will hold all token types
+# Define list that will hold all tokens
 temp = []
 # Define dictionary that will hold counts of all distinct tokens
 corpus = {}
@@ -479,21 +479,46 @@ print('Number of types found in dev data but not in training data: ' + str(len(j
 
 
 # 12. Compare vocab size of combined gold datasets versus input dataset.
-# Plot vocab growth at different sizes N?????????
-# 41760 in input dataset, 24783 in combined gold dataset.
 
-print("Distinct words in input dataset: " + str(len(corpus)) + "\nDistinct words in gold dataset: " + str(len(corpus_gold)))
 
+# Number of unique words in dev set
+unique1 = len(corpus_gold)
+
+# Number of unique words in training set
+unique2 = len(corpus_gold)
+
+# Number of unique words in devtest set
+unique3 = len(corpus_gold)
+
+# Number of unique words in test set
+unique4 = len(corpus_gold)
+
+# Save number of tokens in dev set
+full1 = len(temp_gold_dev)
+# Save number of tokens in training set        
+full2 = len(temp_gold_train)   
+# Save number of tokens in devset   
+full3 = len(temp_gold_devtest) 
+# Save number of tokens in test set
+full4 = len(temp_gold_test)
+
+lexicon = pd.DataFrame({'unique':[0,unique1,unique2,unique3,unique4],'total':[0,full1,full1+full2,full1+full2+full3,full1+full2+full3+full4]})
+lexicon.plot(x ='total', y='unique', kind = 'line', title='Gold Dataset',marker='.', markersize=15,legend=None)
+plt.xlabel("Total Number of Words")
+plt.ylabel("Unique Words in Lexicon")
 
 
 # 13. Class distribution of positive, neutral, and negative tweets in training dataset
 # 3017 positive, 2001 neutral, 850 negative
-
 classes = train['class'].value_counts()
+
+classes2 = dev['class'].value_counts()
+
 print('Tweet class distribution is as follows:\n')
-print(str(classes.values[0]) + ' ' + classes.index[0] + ' tweets.\n')
-print(str(classes.values[1]) + ' ' + classes.index[1] + ' tweets.\n')
-print(str(classes.values[2]) + ' ' + classes.index[2] + ' tweets.\n')
+print(str(classes.values[0] + classes2.values[0]) + ' ' + classes.index[0] + ' tweets.\n')
+print(str(classes.values[1] + classes2.values[1]) + ' ' + classes.index[1] + ' tweets.\n')
+print(str(classes.values[2] + classes2.values[2]) + ' ' + classes.index[2] + ' tweets.\n')
+
 
 
 # 14. Look at top word types across three classes
