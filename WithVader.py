@@ -293,11 +293,11 @@ def vader(data):
     recall_neg = b['negative','negative']/(sum(vadertest['true']=='negative'))
     f_measure_neg = 2*(recall_neg * precision_neg) / (recall_neg + precision_neg)
 
-    results_dev = pd.Series({'Accuracy':accuracy,'Precision(Positive)':precision_pos,'Recall(Positive)':recall_pos,
+    results = pd.Series({'Accuracy':accuracy,'Precision(Positive)':precision_pos,'Recall(Positive)':recall_pos,
                      'F-Measure(Positive)':f_measure_pos,'Precision(Neutral)':precision_neu,'Recall(Neutral)':recall_neu,
                      'F-Measure(Neutral)':f_measure_neu,'Precision(Negative)':precision_neg,'Precision(Neutral)':precision_neu,
                      'F-Measure(Negative)':f_measure_neg})
-    print(results_dev)
+    print(results)
     
     
 
